@@ -93,16 +93,20 @@ fig_region.update_layout(
 
 st.plotly_chart(fig_region)
 
-# Geographic Map
-st.header('Geographic Distribution of Orders')
+# Geographic Distribution of Orders and Sales
+st.header('Geographic Distribution')
+
+# Choose between Sales and Orders
+geo_metric = st.selectbox("Select Metric", ('Sales', 'Orders'))
 
 # Group data by Country
-geographic_data = df.groupby("Country").size().reset_index(name="Number of Orders")
+geographic_data = df.groupby("Country").agg({'Sales': 'sum', 'Row ID': 'count'}).reset_index()
+geographic_data.columns = ['Country', 'Sales', 'Orders']
 
 # Plot geographic map
 fig_geo_map = px.choropleth(geographic_data, locations="Country", locationmode='country names', 
-                             color="Number of Orders", hover_name="Country", 
-                             color_continuous_scale='YlGnBu', title="Geographic Distribution of Orders", width=900, height=500)  # Adjusted plot size
+                             color=geo_metric, hover_name="Country", 
+                             color_continuous_scale='Blues', title=f"{geo_metric} by Country", width=900, height=500)  # Adjusted plot size
 fig_geo_map.update_layout(geo=dict(bgcolor='rgba(0,0,0,0)'))  # Transparent background
 st.plotly_chart(fig_geo_map)
 
@@ -136,4 +140,3 @@ fig_shipping_mode = px.pie(names=shipping_mode_counts.index, values=shipping_mod
                            title='Shipping Mode Distribution', width=600, height=400)
 fig_shipping_mode.update_traces(marker=dict(colors=['#FFA07A', '#98FB98', '#87CEEB', '#FFD700']))  # Set marker colors
 st.plotly_chart(fig_shipping_mode)
-
