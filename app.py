@@ -1,109 +1,139 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 import plotly.express as px
 
 # Load the cleaned dataset
 df = pd.read_excel("Global Superstore lite.xlsx")
 
-# Sidebar for filtering
-st.sidebar.title('Filter Data')
-selected_category = st.sidebar.selectbox("Select Category", ['All'] + list(df["Category"].unique()))
-selected_segment = st.sidebar.selectbox("Select Segment", ['All'] + list(df["Segment"].unique()))
-selected_country = st.sidebar.selectbox("Select Country", ['All'] + list(df["Country"].unique()))
+# Title
+st.title('MINGER - Global Superstore Insights')
 
-# Filter the data based on the selections
-filtered_data = df.copy()
-if selected_category != 'All':
-    filtered_data = filtered_data[filtered_data["Category"] == selected_category]
-if selected_segment != 'All':
-    filtered_data = filtered_data[filtered_data["Segment"] == selected_segment]
-if selected_country != 'All':
-    filtered_data = filtered_data[filtered_data["Country"] == selected_country]
-
-# Organize the visualizations
-st.title('Sales and Profit Analysis')
-
-# Visualization 01 & 02- Sum of sales and profit
-selected_year = st.selectbox("Select Year", ['All'] + list(df["Order Date"].dt.year.unique()))
-
-# setting up filter so you could see sales and profit for each year
-if selected_year != 'All':
-    filtered_df = df[df["Order Date"].dt.year == selected_year]
-else:
-    filtered_df = df
-
-total_sales = filtered_df['Sales'].sum()
-total_profit = filtered_df['Profit'].sum()
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader('Total Sales')
-    st.metric(label="Sales", value=f"${total_sales:,.0f}", delta=None)
-
-with col2:
-    st.subheader('Total Profit')
-    st.metric(label="Profit", value=f"${total_profit:,.0f}", delta=None)
-
-# Sales vs. Discount Scatter Plot
+# Sales vs. Discount Analysis
 st.header('Sales vs. Discount Analysis')
-fig = px.scatter(filtered_data, x='Discount', y='Sales', color='Category', title=f'Sales vs. Discount for {selected_category}',
-                 labels={'Discount': 'Discount (%)', 'Sales': 'Sales ($)'},
-                 template='plotly_dark')  # Change the template for a dark theme
-st.plotly_chart(fig)
+selected_category_sales_discount = st.selectbox("Select Category for Sales vs. Discount", ['All'] + list(df["Category"].unique()))
+filtered_data_sales_discount = df.copy()
+if selected_category_sales_discount != 'All':
+    filtered_data_sales_discount = filtered_data_sales_discount[filtered_data_sales_discount["Category"] == selected_category_sales_discount]
 
-# Total Sales by Category (Bar Chart)
-st.header('Total Sales by Category')
-total_sales_category = filtered_data.groupby('Category')['Sales'].sum().reset_index()
-fig = px.bar(total_sales_category, x='Category', y='Sales', title='Total Sales by Category',
-             labels={'Category': 'Product Category', 'Sales': 'Total Sales ($)'},
-             color='Sales',  # Color by Sales for differentiation
-             color_continuous_scale='Blues')  # Change the color scale
-st.plotly_chart(fig)
+fig_sales_discount = px.scatter(filtered_data_sales_discount, x='Discount', y='Profit', color='Category', title='Sales vs. Discount Analysis',
+                 labels={'Discount': 'Discount (%)', 'Profit': 'Profit ($)'},
+                 width=800, height=500)  # Adjusted plot size
+fig_sales_discount.update_layout(showlegend=True)  # Show legend
+st.plotly_chart(fig_sales_discount)
 
-# Top 5 Products by Sales
-st.header('Top 5 Products by Sales')
-top_products = filtered_data.groupby('Product Name')['Sales'].sum().nlargest(5).reset_index()
-fig = px.bar(top_products, x='Sales', y='Product Name', orientation='h', title='Top 5 Products by Sales',
-             labels={'Product Name': 'Product', 'Sales': 'Total Sales ($)'},
-             color='Sales',  # Color by Sales for differentiation
-             color_continuous_scale='Blues')  # Change the color scale
-st.plotly_chart(fig)
+# Total Sales by Category (Pie Chart)
+total_sales_category = df.groupby('Category')['Profit'].sum().reset_index()
+fig_total_sales_category = px.pie(total_sales_category, values='Profit', names='Category', title='Total Sales by Category', width=600, height=400)  # Adjusted plot size
+st.plotly_chart(fig_total_sales_category)
 
-# Sales Trends Over Time (Line Chart)
-st.header('Sales Trends Over Time')
-filtered_data['Order Date'] = pd.to_datetime(filtered_data['Order Date'])
-sales_trends = filtered_data.groupby(filtered_data['Order Date'].dt.to_period("M"))['Sales'].sum().reset_index()
-sales_trends['Order Date'] = sales_trends['Order Date'].astype(str)  # Convert period index to string
-fig = px.line(sales_trends, x='Order Date', y='Sales', title='Sales Trends Over Time',
-              labels={'Order Date': 'Date', 'Sales': 'Total Sales ($)'},
-              template='plotly_dark')  # Change the template for a dark theme
-st.plotly_chart(fig)
+# Top Products by Sales or Profit (Bar Graph)
+st.header('Top Products')
 
-# Profit by Market and Segment (Bar Chart)
-st.header('Profit by Market and Segment')
-profit_market_segment = filtered_data.groupby(['Market', 'Segment'])['Profit'].sum().reset_index()
-fig = px.bar(profit_market_segment, x='Market', y='Profit', color='Segment', title='Profit by Market and Segment',
-             labels={'Profit': 'Total Profit ($)'},
-             barmode='group', template='plotly_dark')  # Change the template for a dark theme
-st.plotly_chart(fig)
+# Product Selector
+top_products_metric = st.selectbox("Select Top Products by", ('Sales', 'Profit'))
 
-# Distribution of Sales by Ship Mode (Pie Chart)
-st.header('Distribution of Sales by Ship Mode')
-sales_by_ship_mode = filtered_data.groupby('Ship Mode')['Sales'].sum().reset_index()
-fig = px.pie(sales_by_ship_mode, values='Sales', names='Ship Mode', title='Sales Distribution by Ship Mode')
-st.plotly_chart(fig)
+# Filter Data
+top_products_data = df.groupby('Product Name')[top_products_metric].sum().nlargest(10).reset_index()
+# Truncate long product names even further
+top_products_data['Product Name'] = top_products_data['Product Name'].apply(lambda x: x[:15] + '...' if len(x) > 15 else x)
 
-# Distribution of Sales by Region (Bar Chart)
-st.header('Distribution of Sales by Region')
-sales_by_region = filtered_data.groupby('Region')['Sales'].sum().reset_index()
-fig = px.bar(sales_by_region, x='Region', y='Sales', title='Sales Distribution by Region',
-             labels={'Region': 'Region', 'Sales': 'Total Sales ($)'},
-             color='Sales',  # Color by Sales for differentiation
-             color_continuous_scale='Blues')  # Change the color scale
-st.plotly_chart(fig)
+fig_top_products = go.Figure()
 
-# Distribution of Profit by Category (Pie Chart)
-st.header('Distribution of Profit by Category')
-profit_by_category = filtered_data.groupby('Category')['Profit'].sum().reset_index()
-fig = px.pie(profit_by_category, values='Profit', names='Category', title='Profit Distribution by Category')
-st.plotly_chart(fig)
+fig_top_products.add_trace(go.Bar(
+    x=top_products_data['Product Name'],  # Set product names on x-axis
+    y=top_products_data[top_products_metric],
+    marker=dict(color='#636EFA'),  # Set color
+))
+
+fig_top_products.update_layout(
+    title=f'Top 10 Products by {top_products_metric}',
+    xaxis=dict(title='Product Name', automargin=True),  # Adjust margin automatically
+    yaxis=dict(title=f'Total {top_products_metric} ($)'),
+    margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+    width=800,  # Set figure width
+    showlegend=False,  # Hide legend
+    xaxis_tickangle=-45,  # Rotate x-axis labels for better readability
+    plot_bgcolor='rgba(0,0,0,0)',  # Transparent background
+    xaxis_showgrid=True,  # Show grid lines
+    yaxis_showgrid=True,
+)
+
+st.plotly_chart(fig_top_products)
+
+# Region-wise Analysis by Sales or Profit (Bar Graph)
+st.header('Region-wise Analysis')
+
+# Region Selector
+region_metric = st.selectbox("Select Region by", ('Sales', 'Profit'))
+
+# Filter Data
+region_data = df.groupby('Region')[region_metric].sum().nlargest(10).reset_index()
+
+fig_region = go.Figure()
+
+fig_region.add_trace(go.Bar(
+    x=region_data['Region'],  # Set region names on x-axis
+    y=region_data[region_metric],
+    marker=dict(color='#FFA07A'),  # Set color
+))
+
+fig_region.update_layout(
+    title=f'Top 10 Regions by {region_metric}',
+    xaxis=dict(title='Region', automargin=True),  # Adjust margin automatically
+    yaxis=dict(title=f'Total {region_metric} ($)'),
+    margin=dict(l=50, r=50, t=100, b=50),  # Adjust margins
+    width=800,  # Set figure width
+    showlegend=False,  # Hide legend
+    xaxis_tickangle=-45,  # Rotate x-axis labels for better readability
+    plot_bgcolor='rgba(0,0,0,0)',  # Transparent background
+    xaxis_showgrid=True,  # Show grid lines
+    yaxis_showgrid=True,
+)
+
+st.plotly_chart(fig_region)
+
+# Geographic Map
+st.header('Geographic Distribution of Orders')
+
+# Group data by Country
+geographic_data = df.groupby("Country").size().reset_index(name="Number of Orders")
+
+# Plot geographic map
+fig_geo_map = px.choropleth(geographic_data, locations="Country", locationmode='country names', 
+                             color="Number of Orders", hover_name="Country", 
+                             color_continuous_scale='YlGnBu', title="Geographic Distribution of Orders", width=900, height=500)  # Adjusted plot size
+fig_geo_map.update_layout(geo=dict(bgcolor='rgba(0,0,0,0)'))  # Transparent background
+st.plotly_chart(fig_geo_map)
+
+# Time Series Analysis of Sales
+st.header('Time Series Analysis of Sales')
+time_series_data = df.groupby(pd.Grouper(key='Order Date', freq='M')).agg({'Profit': 'sum'}).reset_index()
+
+min_date = time_series_data['Order Date'].min()
+max_date = time_series_data['Order Date'].max()
+
+date_range = st.slider("Select Date Range", min_value=min_date.to_pydatetime(), 
+                       max_value=max_date.to_pydatetime(), value=(min_date.to_pydatetime(), max_date.to_pydatetime()))
+
+filtered_time_series_data = time_series_data[(time_series_data['Order Date'] >= pd.to_datetime(date_range[0])) & 
+                                             (time_series_data['Order Date'] <= pd.to_datetime(date_range[1]))]
+
+fig_time_series = px.line(filtered_time_series_data, x='Order Date', y='Profit', title='Time Series Analysis of Sales',
+                          labels={'Order Date': 'Date', 'Profit': 'Profit ($)'},
+                          width=900, height=500)  # Adjusted plot size
+fig_time_series.update_layout(xaxis_showgrid=True, yaxis_showgrid=True)  # Show grid lines
+st.plotly_chart(fig_time_series)
+
+# Shipping Mode Distribution
+st.header('Shipping Mode Distribution')
+
+# Count the number of orders for each shipping mode
+shipping_mode_counts = df['Ship Mode'].value_counts()
+
+# Plot pie chart
+fig_shipping_mode = px.pie(names=shipping_mode_counts.index, values=shipping_mode_counts.values, 
+                           title='Shipping Mode Distribution', width=600, height=400)
+fig_shipping_mode.update_traces(marker=dict(colors=['#FFA07A', '#98FB98', '#87CEEB', '#FFD700']))  # Set marker colors
+st.plotly_chart(fig_shipping_mode)
+
