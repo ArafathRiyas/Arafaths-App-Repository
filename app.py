@@ -13,6 +13,13 @@ file_name = "Global Superstore lite.xlsx"
 # Construct the full path to the Excel file
 file_path = os.path.join(current_dir, file_name)
 
+# Check if the file exists
+if not os.path.isfile(file_path):
+    st.error(f"The file '{file_name}' was not found. Please make sure the file exists in the correct directory.")
+else:
+    # Load the cleaned dataset
+    df = pd.read_excel(file_path)
+
 try:
     # Load the cleaned dataset
     df = pd.read_excel(file_path)
