@@ -2,9 +2,19 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import os
+
+# Get the current directory of the script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Specify the file name
+file_name = "Global Superstore lite.xlsx"
+
+# Construct the full path to the Excel file
+file_path = os.path.join(current_dir, file_name)
 
 # Load the cleaned dataset
-df = pd.read_excel("Global Superstore lite.xlsx")
+df = pd.read_excel(file_path)
 
 # Title
 st.title('Minger Analysis Dashboard')
